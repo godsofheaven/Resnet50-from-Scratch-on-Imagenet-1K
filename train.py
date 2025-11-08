@@ -7,7 +7,7 @@ from typing import Tuple, Optional
 import numpy as np
 import torch
 from torch import nn
-from torch.cuda.amp import autocast, GradScaler
+from torch.amp import autocast, GradScaler
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.optim.lr_scheduler import CosineAnnealingLR, SequentialLR, LambdaLR
 from torch.utils.data import DataLoader
@@ -42,6 +42,21 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--resume", type=str, default=None)
     p.add_argument("--evaluate", action="store_true")
     p.add_argument("--cache-dir", type=str, default=None)
+    p.add_argument("--constant-lr", action="store_true", help="Use a constant LR (no scheduling)")
+    p.add_argument("--reset-scheduler", action="store_true", help="Ignore scheduler state in checkpoint when resuming")
+    p.add_argument(
+        "--precision",
+        type=str,
+        default="fp16",
+        choices=["fp32", "fp16", "bf16"],
+        help="Numerical precision: fp32 (no AMP), fp16 (AMP+GradScaler), or bf16 (AMP no scaler)",
+    )
+    p.add_argument(
+        "--early-stop-top1",
+        type=float,
+        default=81.0,
+        help="Early stop when validation Top-1 (in %) reaches this threshold.",
+    )
     return p.parse_args()
 
 
@@ -115,16 +130,45 @@ def accuracy(output: torch.Tensor, target: torch.Tensor, topk=(1,)):
     return res
 
 
+def coerce_labels_to_long_tensor(labels) -> torch.Tensor:
+    """Convert labels into a 1D LongTensor robustly.
+    Handles tensors, lists/tuples of ints or tensors, and scalars.
+    """
+    if isinstance(labels, torch.Tensor):
+        if labels.dtype != torch.long:
+            labels = labels.long()
+        if labels.dim() > 1 and labels.size(-1) == 1:
+            labels = labels.squeeze(-1)
+        return labels
+    if isinstance(labels, (list, tuple)):
+        if len(labels) == 0:
+            return torch.empty(0, dtype=torch.long)
+        normalized = []
+        for item in labels:
+            if isinstance(item, torch.Tensor):
+                if item.numel() == 1:
+                    normalized.append(int(item.item()))
+                else:
+                    normalized.append(int(item.view(-1)[0].item()))
+            else:
+                normalized.append(int(item))
+        return torch.tensor(normalized, dtype=torch.long)
+    try:
+        return torch.tensor(labels, dtype=torch.long)
+    except Exception:
+        return torch.as_tensor(labels).long()
+
 def train_one_epoch(
     model: nn.Module,
     loader: DataLoader,
     optimizer: torch.optim.Optimizer,
     criterion: nn.Module,
     device: torch.device,
-    scaler: GradScaler,
+    scaler: Optional[GradScaler],
     random_erasing_transform: Optional[torch.nn.Module] = None,
     mixup_alpha: float = 0.0,
     amp: bool = True,
+    amp_dtype: torch.dtype = torch.float16,
     rank: int = 0,
 ) -> Tuple[float, float]:
     model.train()
@@ -141,22 +185,65 @@ def train_one_epoch(
 
         optimizer.zero_grad(set_to_none=True)
 
-        with autocast(enabled=amp):
+        with autocast(device_type="cuda", enabled=amp, dtype=amp_dtype):
             outputs = model(images)
-            if isinstance(targets, tuple):
+            if isinstance(targets, (tuple, list)):
                 y_a, y_b, lam = targets
+                # Ensure label tensors are torch.LongTensor before moving to device
+                y_a = coerce_labels_to_long_tensor(y_a)
+                y_b = coerce_labels_to_long_tensor(y_b)
+                # Normalize possible 2D/one-hot/transposed label tensors
+                if isinstance(y_a, torch.Tensor) and y_a.dim() > 1:
+                    # Handle transposed shape [C, N]
+                    if y_a.size(0) != outputs.size(0) and y_a.size(1) == outputs.size(0):
+                        y_a = y_a.t().contiguous()
+                    # Convert one-hot/soft labels [N, C] to indices
+                    if y_a.size(0) == outputs.size(0) and y_a.size(-1) == outputs.size(1):
+                        y_a = y_a.argmax(dim=1)
+                    # Squeeze trailing singleton class dim
+                    if y_a.dim() > 1 and y_a.size(-1) == 1:
+                        y_a = y_a.squeeze(-1)
+                if isinstance(y_b, torch.Tensor) and y_b.dim() > 1:
+                    if y_b.size(0) != outputs.size(0) and y_b.size(1) == outputs.size(0):
+                        y_b = y_b.t().contiguous()
+                    if y_b.size(0) == outputs.size(0) and y_b.size(-1) == outputs.size(1):
+                        y_b = y_b.argmax(dim=1)
+                    if y_b.dim() > 1 and y_b.size(-1) == 1:
+                        y_b = y_b.squeeze(-1)
                 y_a = y_a.to(device, non_blocking=True)
                 y_b = y_b.to(device, non_blocking=True)
                 loss = lam * criterion(outputs, y_a) + (1.0 - lam) * criterion(outputs, y_b)
                 targets_for_acc = y_a
             else:
+                # Coerce labels to torch.LongTensor before moving to device
+                targets = coerce_labels_to_long_tensor(targets)
+                # Normalize possible 2D/one-hot/transposed label tensors
+                if isinstance(targets, torch.Tensor) and targets.dim() > 1:
+                    # Handle transposed shape [C, N]
+                    if targets.size(0) != outputs.size(0) and targets.size(1) == outputs.size(0):
+                        targets = targets.t().contiguous()
+                    # Convert one-hot/soft labels [N, C] to indices
+                    if targets.size(0) == outputs.size(0) and targets.size(-1) == outputs.size(1):
+                        targets = targets.argmax(dim=1)
+                    # Squeeze trailing singleton class dim
+                    if targets.dim() > 1 and targets.size(-1) == 1:
+                        targets = targets.squeeze(-1)
                 targets = targets.to(device, non_blocking=True)
+                if targets.dim() != 1 or targets.size(0) != outputs.size(0):
+                    raise ValueError(
+                        f"Target batch {tuple(targets.shape)} does not match input batch {(outputs.size(0),)}. "
+                        "Ensure labels are class indices of shape [batch]."
+                    )
                 loss = criterion(outputs, targets)
                 targets_for_acc = targets
 
-        scaler.scale(loss).backward()
-        scaler.step(optimizer)
-        scaler.update()
+        if scaler is not None and scaler.is_enabled():
+            scaler.scale(loss).backward()
+            scaler.step(optimizer)
+            scaler.update()
+        else:
+            loss.backward()
+            optimizer.step()
 
         bs = images.size(0)
         total += bs
@@ -172,7 +259,14 @@ def train_one_epoch(
 
 
 @torch.no_grad()
-def evaluate(model: nn.Module, loader: DataLoader, device: torch.device, amp: bool = True, rank: int = 0) -> Tuple[float, float]:
+def evaluate(
+    model: nn.Module,
+    loader: DataLoader,
+    device: torch.device,
+    amp: bool = True,
+    amp_dtype: torch.dtype = torch.float16,
+    rank: int = 0,
+) -> Tuple[float, float]:
     model.eval()
     running_loss = 0.0
     running_top1 = 0.0
@@ -181,8 +275,17 @@ def evaluate(model: nn.Module, loader: DataLoader, device: torch.device, amp: bo
     pbar = tqdm(loader, desc="valid", leave=False, disable=(rank != 0))
     for images, targets in pbar:
         images = images.to(device, non_blocking=True)
+        # Coerce and normalize labels similarly to training
+        targets = coerce_labels_to_long_tensor(targets)
+        if isinstance(targets, torch.Tensor) and targets.dim() > 1:
+            if targets.size(0) != images.size(0) and targets.size(1) == images.size(0):
+                targets = targets.t().contiguous()
+            if targets.size(0) == images.size(0) and targets.size(-1) == 1000:
+                targets = targets.argmax(dim=1)
+            if targets.dim() > 1 and targets.size(-1) == 1:
+                targets = targets.squeeze(-1)
         targets = targets.to(device, non_blocking=True)
-        with autocast(enabled=amp):
+        with autocast(device_type="cuda", enabled=amp, dtype=amp_dtype):
             outputs = model(images)
             loss = criterion(outputs, targets)
         bs = images.size(0)
@@ -255,7 +358,18 @@ def main() -> None:
     )
     criterion = nn.CrossEntropyLoss(label_smoothing=args.label_smoothing)
 
-    scaler = GradScaler(enabled=device.type == "cuda")
+    # AMP configuration
+    if args.precision == "fp32":
+        amp_enabled = False
+        amp_dtype = torch.float16
+    elif args.precision == "bf16":
+        amp_enabled = device.type == "cuda"
+        amp_dtype = torch.bfloat16
+    else:  # fp16
+        amp_enabled = device.type == "cuda"
+        amp_dtype = torch.float16
+
+    scaler = GradScaler(enabled=(args.precision == "fp16" and amp_enabled))
 
     start_epoch = 0
 
@@ -295,16 +409,38 @@ def main() -> None:
         scheduler = SequentialLR(optimizer, schedulers=[warmup, cosine], milestones=[args.warmup_epochs])
     else:
         scheduler = CosineAnnealingLR(optimizer, T_max=args.epochs)
+    # Override with constant LR schedule if requested
+    if args.constant_lr:
+        scheduler = LambdaLR(optimizer, lr_lambda=lambda epoch: 1.0)
 
     # Resume
     if args.resume:
         start_epoch = load_checkpoint(args.resume, model if not isinstance(model, DDP) else model.module, optimizer, scaler)
         if rank == 0:
             print(f"Resumed from {args.resume}, starting at epoch {start_epoch}")
+        # Restore scheduler state if available; otherwise align to current epoch
+        if args.reset_scheduler:
+            scheduler.last_epoch = start_epoch - 1
+        else:
+            try:
+                ckpt_for_sched = torch.load(args.resume, map_location="cpu")
+                if "scheduler" in ckpt_for_sched and ckpt_for_sched["scheduler"] is not None:
+                    scheduler.load_state_dict(ckpt_for_sched["scheduler"])
+                else:
+                    scheduler.last_epoch = start_epoch - 1
+            except Exception:
+                scheduler.last_epoch = start_epoch - 1
 
     # Evaluate only
     if args.evaluate:
-        val_loss, val_top1 = evaluate(model if not isinstance(model, DDP) else model.module, val_loader, device, rank=rank)
+        val_loss, val_top1 = evaluate(
+            model if not isinstance(model, DDP) else model.module,
+            val_loader,
+            device,
+            amp=amp_enabled,
+            amp_dtype=amp_dtype,
+            rank=rank,
+        )
         if rank == 0:
             print(f"Eval-only: Val Loss {val_loss:.4f} | Val Top-1 {val_top1:.2f}%")
         return
@@ -318,14 +454,26 @@ def main() -> None:
     for epoch in range(start_epoch, args.epochs):
         t0 = time.time()
         train_loss, train_top1 = train_one_epoch(
-            model, train_loader, optimizer, criterion, device, scaler,
+            model,
+            train_loader,
+            optimizer,
+            criterion,
+            device,
+            scaler,
             random_erasing_transform=random_erasing_transform,
             mixup_alpha=mixup_alpha,
-            amp=True,
+            amp=amp_enabled,
+            amp_dtype=amp_dtype,
             rank=rank,
         )
-        scheduler.step()
-        val_loss, val_top1 = evaluate(model if not isinstance(model, DDP) else model.module, val_loader, device, rank=rank)
+        val_loss, val_top1 = evaluate(
+            model if not isinstance(model, DDP) else model.module,
+            val_loader,
+            device,
+            amp=amp_enabled,
+            amp_dtype=amp_dtype,
+            rank=rank,
+        )
         dt = time.time() - t0
         if rank == 0:
             current_lr = optimizer.param_groups[0]["lr"]
@@ -356,13 +504,25 @@ def main() -> None:
                     "epoch": epoch + 1,
                     "model": (model.module if isinstance(model, DDP) else model).state_dict(),
                     "optimizer": optimizer.state_dict(),
-                    "scaler": scaler.state_dict() if scaler.is_enabled() else None,
+                    "scaler": scaler.state_dict() if (scaler is not None and scaler.is_enabled()) else None,
+                    "scheduler": scheduler.state_dict(),
                     "best_top1": best_top1,
                     "args": vars(args),
                 },
                 is_best=is_best,
                 out_dir=args.output,
             )
+
+            # Early stopping based on validation Top-1 threshold
+            if val_top1 >= args.early_stop_top1:
+                if rank == 0:
+                    print(
+                        f"Early stopping: Val Top-1 {val_top1:.2f}% "+
+                        f">= threshold {args.early_stop_top1:.2f}%"
+                    )
+                break
+        # Step LR scheduler at the end of the epoch so logged LR reflects the epoch just trained
+        scheduler.step()
 
     if rank == 0:
         print(f"Training complete. Best Val Top-1: {best_top1:.2f}%")

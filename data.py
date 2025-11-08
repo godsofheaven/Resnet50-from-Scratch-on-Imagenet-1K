@@ -30,6 +30,10 @@ class HFImageNetDataset(Dataset):
         label = int(sample["label"]) if sample["label"] != -1 else -1
         if not isinstance(image, Image.Image):
             image = Image.fromarray(image)
+        # Ensure 3-channel RGB to match normalization mean/std (3 values)
+        # Some samples may be grayscale; convert to RGB to avoid channel mismatch
+        if image.mode != "RGB":
+            image = image.convert("RGB")
         if self.transform is not None:
             image = self.transform(image)
         return image, label
