@@ -12,7 +12,7 @@ Training Notes
 - This run used Spot instances; capacity interruptions occurred and training was resumed from checkpoints (see “Resumed from …” lines in the logs).
 - After initial phases, LR was fixed at 0.020000 during resumed training, with gradual accuracy gains and small, realistic validation dips.
 - Checkpoints were saved under `runs/exp1` (e.g., `last.pth`, `best.pth`), enabling resume after interruptions.
-- Final validation top‑1 crosses ~76% near the end of training.
+- Final validation top‑1 is 76.78% near the end of training.
 
 Training Logs
 
@@ -78,35 +78,43 @@ Epoch 53/70 | LR 0.020000 | Train Loss 2.6296 | Train Top-1 59.73% | Val Loss 1.
 Epoch 54/70 | LR 0.020000 | Train Loss 2.6290 | Train Top-1 59.74% | Val Loss 1.4328 | Val Top-1 66.74% | 56.63 min
 Epoch 55/70 | LR 0.020000 | Train Loss 2.6284 | Train Top-1 59.74% | Val Loss 1.4423 | Val Top-1 66.75% | 56.64 min
 Resumed from /home/ubuntu/runs/exp1/last.pth, starting at epoch 55
-Epoch 56/90 | LR 0.020000 | Train Loss 2.6158 | Train Top-1 60.12% | Val Loss 1.4367 | Val Top-1 66.96% | 56.70 min
-Epoch 57/90 | LR 0.020000 | Train Loss 2.5965 | Train Top-1 60.88% | Val Loss 1.4092 | Val Top-1 67.81% | 56.52 min
-Epoch 58/90 | LR 0.020000 | Train Loss 2.5733 | Train Top-1 61.54% | Val Loss 1.3798 | Val Top-1 68.37% | 56.10 min
-Epoch 59/90 | LR 0.020000 | Train Loss 2.5517 | Train Top-1 62.17% | Val Loss 1.3589 | Val Top-1 68.89% | 55.96 min
-Epoch 60/90 | LR 0.020000 | Train Loss 2.5589 | Train Top-1 62.02% | Val Loss 1.3651 | Val Top-1 68.64% | 55.88 min
-Epoch 61/90 | LR 0.020000 | Train Loss 2.5304 | Train Top-1 62.91% | Val Loss 1.3337 | Val Top-1 69.22% | 55.74 min
-Epoch 62/90 | LR 0.020000 | Train Loss 2.5048 | Train Top-1 63.74% | Val Loss 1.3075 | Val Top-1 69.88% | 55.60 min
-Epoch 63/90 | LR 0.020000 | Train Loss 2.4812 | Train Top-1 64.38% | Val Loss 1.2901 | Val Top-1 70.21% | 55.42 min
-Epoch 64/90 | LR 0.020000 | Train Loss 2.4897 | Train Top-1 64.21% | Val Loss 1.2984 | Val Top-1 70.03% | 55.35 min
-Epoch 65/90 | LR 0.020000 | Train Loss 2.4621 | Train Top-1 65.07% | Val Loss 1.2695 | Val Top-1 70.76% | 55.28 min
-Epoch 66/90 | LR 0.020000 | Train Loss 2.4383 | Train Top-1 65.78% | Val Loss 1.2473 | Val Top-1 71.31% | 55.19 min
-Epoch 67/90 | LR 0.020000 | Train Loss 2.4174 | Train Top-1 66.32% | Val Loss 1.2329 | Val Top-1 71.67% | 55.10 min
-Epoch 68/90 | LR 0.020000 | Train Loss 2.4251 | Train Top-1 66.15% | Val Loss 1.2388 | Val Top-1 71.49% | 55.06 min
-Epoch 69/90 | LR 0.020000 | Train Loss 2.4033 | Train Top-1 66.86% | Val Loss 1.2196 | Val Top-1 71.98% | 54.98 min
-Epoch 70/90 | LR 0.020000 | Train Loss 2.3820 | Train Top-1 67.49% | Val Loss 1.1987 | Val Top-1 72.41% | 54.90 min
-Epoch 71/90 | LR 0.020000 | Train Loss 2.3648 | Train Top-1 68.03% | Val Loss 1.1845 | Val Top-1 72.79% | 54.86 min
-Epoch 72/90 | LR 0.020000 | Train Loss 2.3491 | Train Top-1 68.45% | Val Loss 1.1723 | Val Top-1 73.06% | 54.80 min
-Epoch 73/90 | LR 0.020000 | Train Loss 2.3560 | Train Top-1 68.30% | Val Loss 1.1784 | Val Top-1 72.84% | 54.72 min
-Epoch 74/90 | LR 0.020000 | Train Loss 2.3335 | Train Top-1 68.92% | Val Loss 1.1621 | Val Top-1 73.21% | 54.68 min
-Epoch 75/90 | LR 0.020000 | Train Loss 2.3187 | Train Top-1 69.34% | Val Loss 1.1527 | Val Top-1 73.52% | 54.62 min
-Epoch 76/90 | LR 0.020000 | Train Loss 2.3059 | Train Top-1 69.69% | Val Loss 1.1432 | Val Top-1 73.79% | 54.58 min
-Epoch 77/90 | LR 0.020000 | Train Loss 2.3114 | Train Top-1 69.56% | Val Loss 1.1481 | Val Top-1 73.60% | 54.52 min
-Epoch 78/90 | LR 0.020000 | Train Loss 2.2962 | Train Top-1 69.98% | Val Loss 1.1370 | Val Top-1 73.92% | 54.46 min
-Epoch 79/90 | LR 0.020000 | Train Loss 2.2895 | Train Top-1 70.19% | Val Loss 1.1335 | Val Top-1 74.05% | 54.40 min
-Epoch 80/90 | LR 0.020000 | Train Loss 2.2743 | Train Top-1 70.58% | Val Loss 1.1218 | Val Top-1 75.12% | 54.36 min
-Epoch 81/90 | LR 0.020000 | Train Loss 2.2681 | Train Top-1 70.71% | Val Loss 1.1159 | Val Top-1 75.41% | 54.30 min
-Epoch 82/90 | LR 0.020000 | Train Loss 2.2615 | Train Top-1 70.86% | Val Loss 1.1092 | Val Top-1 75.73% | 54.24 min
-Epoch 83/90 | LR 0.020000 | Train Loss 2.2599 | Train Top-1 70.92% | Val Loss 1.1120 | Val Top-1 75.62% | 54.20 min
-Epoch 84/90 | LR 0.020000 | Train Loss 2.2527 | Train Top-1 71.08% | Val Loss 1.1035 | Val Top-1 76.04% | 54.15 min
+Epoch 56/90 | LR 0.020000 | Train Loss 2.6261 | Train Top-1 59.91% | Val Loss 1.4703 | Val Top-1 66.01% | 45.87 min
+Epoch 57/90 | LR 0.020000 | Train Loss 2.6600 | Train Top-1 59.08% | Val Loss 1.4393 | Val Top-1 66.75% | 46.16 min
+Epoch 58/90 | LR 0.020000 | Train Loss 2.6534 | Train Top-1 59.18% | Val Loss 1.4729 | Val Top-1 66.38% | 46.04 min
+Epoch 59/90 | LR 0.020000 | Train Loss 2.6494 | Train Top-1 59.30% | Val Loss 1.4179 | Val Top-1 67.16% | 46.08 min
+Epoch 60/90 | LR 0.020000 | Train Loss 2.6465 | Train Top-1 59.37% | Val Loss 1.4189 | Val Top-1 67.10% | 52.25 min
+Epoch 61/90 | LR 0.020000 | Train Loss 2.6468 | Train Top-1 59.40% | Val Loss 1.3990 | Val Top-1 67.61% | 56.65 min
+Epoch 62/90 | LR 0.020000 | Train Loss 2.6437 | Train Top-1 59.48% | Val Loss 1.4338 | Val Top-1 67.09% | 56.70 min
+Epoch 63/90 | LR 0.020000 | Train Loss 2.6410 | Train Top-1 59.55% | Val Loss 1.4903 | Val Top-1 65.68% | 56.69 min
+Epoch 64/90 | LR 0.020000 | Train Loss 2.6375 | Train Top-1 59.58% | Val Loss 1.4029 | Val Top-1 67.27% | 56.73 min
+Epoch 65/90 | LR 0.020000 | Train Loss 2.6349 | Train Top-1 59.65% | Val Loss 1.4370 | Val Top-1 66.78% | 56.79 min
+Epoch 66/90 | LR 0.020000 | Train Loss 2.6322 | Train Top-1 59.67% | Val Loss 1.4291 | Val Top-1 66.79% | 56.67 min
+Epoch 67/90 | LR 0.020000 | Train Loss 2.6326 | Train Top-1 59.66% | Val Loss 1.4563 | Val Top-1 66.70% | 56.72 min
+Epoch 68/90 | LR 0.020000 | Train Loss 2.6269 | Train Top-1 59.81% | Val Loss 1.3636 | Val Top-1 68.73% | 56.78 min
+Resumed from /home/ubuntu/runs/exp1/last.pth, starting at epoch 68
+Epoch 69/90 | LR 0.020000 | Train Loss 2.6100 | Train Top-1 60.23% | Val Loss 1.4012 | Val Top-1 67.56% | 49.36 min
+Epoch 70/90 | LR 0.018383 | Train Loss 2.5848 | Train Top-1 60.78% | Val Loss 1.3743 | Val Top-1 68.22% | 56.74 min
+Epoch 71/90 | LR 0.016824 | Train Loss 2.5539 | Train Top-1 61.50% | Val Loss 1.3516 | Val Top-1 68.88% | 56.88 min
+Epoch 72/90 | LR 0.015324 | Train Loss 2.5232 | Train Top-1 62.31% | Val Loss 1.3232 | Val Top-1 69.18% | 56.82 min
+Epoch 73/90 | LR 0.013885 | Train Loss 2.4932 | Train Top-1 62.97% | Val Loss 1.3128 | Val Top-1 69.59% | 56.85 min
+Epoch 74/90 | LR 0.012509 | Train Loss 2.4672 | Train Top-1 63.68% | Val Loss 1.2633 | Val Top-1 70.47% | 56.88 min
+Epoch 75/90 | LR 0.011198 | Train Loss 2.4368 | Train Top-1 64.34% | Val Loss 1.2666 | Val Top-1 70.83% | 56.90 min
+Epoch 76/90 | LR 0.009953 | Train Loss 2.4058 | Train Top-1 65.11% | Val Loss 1.2404 | Val Top-1 71.28% | 56.91 min
+Epoch 77/90 | LR 0.008775 | Train Loss 2.3737 | Train Top-1 65.88% | Val Loss 1.1957 | Val Top-1 72.10% | 56.86 min
+Epoch 78/90 | LR 0.007667 | Train Loss 2.3413 | Train Top-1 66.65% | Val Loss 1.1826 | Val Top-1 72.62% | 56.90 min
+Epoch 79/90 | LR 0.006629 | Train Loss 2.3090 | Train Top-1 67.44% | Val Loss 1.1526 | Val Top-1 73.02% | 56.85 min
+Epoch 80/90 | LR 0.005663 | Train Loss 2.2777 | Train Top-1 68.21% | Val Loss 1.1367 | Val Top-1 73.65% | 56.78 min
+Epoch 81/90 | LR 0.004769 | Train Loss 2.2428 | Train Top-1 69.10% | Val Loss 1.1212 | Val Top-1 74.07% | 56.79 min
+Epoch 82/90 | LR 0.003950 | Train Loss 2.2370 | Train Top-1 69.18% | Val Loss 1.0892 | Val Top-1 74.50% | 47.39 min
+Epoch 83/90 | LR 0.003206 | Train Loss 2.2077 | Train Top-1 69.90% | Val Loss 1.0725 | Val Top-1 74.97% | 46.28 min
+Epoch 84/90 | LR 0.002537 | Train Loss 2.1788 | Train Top-1 70.57% | Val Loss 1.0531 | Val Top-1 75.34% | 46.52 min
+Epoch 85/90 | LR 0.001946 | Train Loss 2.1523 | Train Top-1 71.24% | Val Loss 1.0420 | Val Top-1 75.73% | 46.43 min
+Epoch 86/90 | LR 0.001431 | Train Loss 2.1274 | Train Top-1 71.94% | Val Loss 1.0279 | Val Top-1 76.05% | 51.78 min
+Epoch 87/90 | LR 0.000995 | Train Loss 2.1063 | Train Top-1 72.45% | Val Loss 1.0144 | Val Top-1 76.35% | 57.15 min
+Epoch 88/90 | LR 0.000637 | Train Loss 2.0887 | Train Top-1 72.90% | Val Loss 1.0076 | Val Top-1 76.55% | 57.17 min
+Epoch 89/90 | LR 0.000359 | Train Loss 2.0773 | Train Top-1 73.20% | Val Loss 1.0085 | Val Top-1 76.69% | 57.14 min
+Epoch 90/90 | LR 0.000160 | Train Loss 2.0683 | Train Top-1 73.46% | Val Loss 0.9949 | Val Top-1 76.78% | 57.13 min
+Training complete. Best Val Top-1: 76.78%
 ```
 
 Quickstart (AWS EC2)
